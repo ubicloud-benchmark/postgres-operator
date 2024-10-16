@@ -10,10 +10,19 @@ on:
 
 jobs:
   go-test:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.runner }} 
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ['ubuntu-latest', 'ubicloud-standard-2-ubuntu-2404', 'ubicloud-standard-4-ubuntu-2404', 'ubicloud-standard-8-ubuntu-2404', 'ubicloud-standard-16-ubuntu-2404']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        if: matrix.runner == 'ubuntu-latest'
+        with: { go-version: stable }
+      - uses: ubicloud/setup-go@v5
+        if: matrix.runner != 'ubuntu-latest'
         with: { go-version: stable }
       - run: make check
       - run: make check-generate
@@ -22,15 +31,21 @@ jobs:
         run: go mod tidy && git diff --exit-code -- go.mod
 
   kubernetes-api:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.kubernetes }} ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     needs: [go-test]
     strategy:
       fail-fast: false
       matrix:
         kubernetes: ['default']
+        runner: ['ubuntu-latest', 'ubicloud-standard-2-ubuntu-2404', 'ubicloud-standard-4-ubuntu-2404', 'ubicloud-standard-8-ubuntu-2404', 'ubicloud-standard-16-ubuntu-2404']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        if: matrix.runner == 'ubuntu-latest'
+        with: { go-version: stable }
+      - uses: ubicloud/setup-go@v5
+        if: matrix.runner != 'ubuntu-latest'
         with: { go-version: stable }
       - run: go mod download
       - run: ENVTEST_K8S_VERSION="${KUBERNETES#default}" make check-envtest
@@ -43,23 +58,27 @@ jobs:
       - run: gzip envtest.coverage
       - uses: actions/upload-artifact@v4
         with:
-          name: "~coverage~kubernetes-api=${{ matrix.kubernetes }}"
+          name: "~coverage~kubernetes-api=${{ matrix.kubernetes }}${{ matrix.runner }}"
           path: envtest.coverage.gz
           retention-days: 1
 
   kubernetes-k3d:
-    if: "${{ github.repository == 'CrunchyData/postgres-operator' }}"
-    runs-on: ubuntu-latest
+    name: ${{ matrix.kubernetes }} ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     needs: [go-test]
     strategy:
       fail-fast: false
       matrix:
         kubernetes: [v1.30, v1.25]
+        runner: ['ubuntu-latest', 'ubicloud-standard-2-ubuntu-2404', 'ubicloud-standard-4-ubuntu-2404', 'ubicloud-standard-8-ubuntu-2404', 'ubicloud-standard-16-ubuntu-2404']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        if: matrix.runner == 'ubuntu-latest'
         with: { go-version: stable }
-
+      - uses: ubicloud/setup-go@v5
+        if: matrix.runner != 'ubuntu-latest'
+        with: { go-version: stable }
       - name: Start k3s
         uses: ./.github/actions/k3d
         with:
@@ -79,22 +98,27 @@ jobs:
       - run: gzip envtest-existing.coverage
       - uses: actions/upload-artifact@v4
         with:
-          name: "~coverage~kubernetes-k3d=${{ matrix.kubernetes }}"
+          name: "~coverage~kubernetes-k3d=${{ matrix.kubernetes }}${{ matrix.runner }}"
           path: envtest-existing.coverage.gz
           retention-days: 1
 
   kuttl-k3d:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.kubernetes }} ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     needs: [go-test]
     strategy:
       fail-fast: false
       matrix:
         kubernetes: [v1.29, v1.28, v1.27, v1.26, v1.25]
+        runner: ['ubuntu-latest', 'ubicloud-standard-2-ubuntu-2404', 'ubicloud-standard-4-ubuntu-2404', 'ubicloud-standard-8-ubuntu-2404', 'ubicloud-standard-16-ubuntu-2404']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        if: matrix.runner == 'ubuntu-latest'
         with: { go-version: stable }
-
+      - uses: ubicloud/setup-go@v5
+        if: matrix.runner != 'ubuntu-latest'
+        with: { go-version: stable }
       - name: Start k3s
         uses: ./.github/actions/k3d
         with:
